@@ -21,3 +21,12 @@ output "key_vault_id" {
 output "app_insights_id" {
   value = module.app_insights.id
 }
+
+output "aks_id" {
+  value = module.aks.id
+}
+
+output "aks_kube_config" {
+  value     = module.aks.kube_config
+  sensitive = true
+}

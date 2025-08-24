@@ -34,3 +34,15 @@ variable "pricing_size" {
   type        = string
   default     = "S1"
 }
+variable "aks_node_count" {
+  description = "Number of nodes in the AKS cluster."
+  default     = 1
+}
+variable "aks_vm_size" {
+  description = "VM size for AKS nodes."
+  default     = "Standard_DS2_v2"
+}
+variable "aks_kubernetes_version" {
+  description = "AKS Kubernetes version."
+  default     = "1.29.2"
+}

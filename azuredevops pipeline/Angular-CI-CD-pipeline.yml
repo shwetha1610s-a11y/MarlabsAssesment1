@@ -74,7 +74,7 @@ stages:
                     package: '$(Pipeline.Workspace)/angular-app/angular-app.zip'
                   displayName: 'Deploy to Dev Web App'
 
-  # 🧪 Stage 3: Deploy to Staging
+  #Stage 3: Deploy to Staging
   - stage: DeployStaging
     displayName: 'Deploy to Staging Environment'
     dependsOn: DeployDev
@@ -97,7 +97,7 @@ stages:
                     package: '$(Pipeline.Workspace)/angular-app/angular-app.zip'
                   displayName: 'Deploy to Staging Web App'
 
-  # 🎯 Stage 4: Deploy to Production
+  # Stage 4: Deploy to Production
   - stage: DeployProd
     displayName: 'Deploy to Production Environment'
     dependsOn: DeployStaging

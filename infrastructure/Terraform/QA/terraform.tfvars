@@ -7,3 +7,6 @@ db_password        = ""
 tenant_id          = ""
 pricing_tier       = "Standard"
 pricing_size       = "S1"
+aks_node_count        = 1
+aks_vm_size           = "Standard_DS2_v2"
+aks_kubernetes_version = "1.29.2"

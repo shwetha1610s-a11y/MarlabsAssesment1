@@ -17,6 +17,13 @@ stages:
       steps:
         - checkout: self
 
+        - task: AzureKeyVault@2
+          name: FetchSecrets
+          inputs:
+            azureSubscription: '<YOUR-AZURE-SERVICE-CONNECTION>'
+            KeyVaultName: '<YOUR-KEY-VAULT-NAME>'
+            SecretsFilter: '*'
+
         - task: TerraformInstaller@1
           displayName: 'Install Terraform'
           inputs:
