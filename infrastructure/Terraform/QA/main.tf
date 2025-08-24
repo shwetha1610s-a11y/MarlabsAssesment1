@@ -97,3 +97,13 @@ module "app_insights" {
   location            = azurerm_resource_group.qa_rg.location
   resource_group_name = azurerm_resource_group.qa_rg.name
 }
+module "aks" {
+  source              = "../modules/aks"
+  name                = "${var.prefix}-aks"
+  location            = data.azurerm_resource_group.qa_rg.location
+  resource_group_name = data.azurerm_resource_group.qa_rg.name
+  dns_prefix          = "${var.prefix}-aks"
+  node_count          = var.aks_node_count
+  vm_size             = var.aks_vm_size
+  kubernetes_version  = var.aks_kubernetes_version
+}
