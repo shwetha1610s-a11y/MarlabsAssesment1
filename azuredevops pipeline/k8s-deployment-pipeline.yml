@@ -1,0 +1,45 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  k8sNamespace: default
+  k8sManifest: infrastructure/Kubernetes/Blob-deployment.yml
+  kubernetesServiceConnection: <YOUR-K8S-SERVICE-CONNECTION>
+
+stages:
+- stage: CleanUp
+  displayName: 'Delete Existing K8s Resources'
+  jobs:
+    - job: DeleteK8s
+      displayName: 'Delete K8s Resources'
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+        - task: KubernetesManifest@1
+          displayName: 'Delete K8s Resources'
+          inputs:
+            action: 'delete'
+            namespace: '$(k8sNamespace)'
+            manifests: '$(k8sManifest)'
+            kubernetesServiceConnection: '$(kubernetesServiceConnection)'
+
+- stage: Deploy
+  displayName: 'Apply K8s Resources'
+  dependsOn: CleanUp
+  jobs:
+    - job: ApplyK8s
+      displayName: 'Apply K8s Resources'
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+        - task: KubernetesManifest@1
+          displayName: 'Apply K8s Resources'
+          inputs:
+            action: 'apply'
+            namespace: '$(k8sNamespace)'
+            manifests: '$(k8sManifest)'
+            kubernetesServiceConnection: '$(kubernetesServiceConnection)'

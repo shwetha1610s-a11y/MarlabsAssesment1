@@ -1,0 +1,47 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  imageRepositoryFrontend: 'frontend'
+  imageRepositoryBackend: 'backend'
+  dockerRegistryServiceConnection: '<YOUR-ACR-SERVICE-CONNECTION>'
+  containerRegistry: '<YOUR-ACR-NAME>.azurecr.io'
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: BuildAndPush
+  displayName: Build and Push Docker Images
+  jobs:
+    - job: BuildFrontend
+      displayName: Build and Push Frontend Image
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+        - task: Docker@2
+          displayName: Build and Push Frontend Docker Image
+          inputs:
+            command: buildAndPush
+            repository: $(imageRepositoryFrontend)
+            dockerfile: src/Frontend/Dockerfile
+            containerRegistry: $(dockerRegistryServiceConnection)
+            tags: |
+              $(tag)
+              
+    - job: BuildBackend
+      displayName: Build and Push Backend Image
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+        - task: Docker@2
+          displayName: Build and Push Backend Docker Image
+          inputs:
+            command: buildAndPush
+            repository: $(imageRepositoryBackend)
+            dockerfile: src/Backend/Dockerfile
+            containerRegistry: $(dockerRegistryServiceConnection)
+            tags: |
+              $(tag)

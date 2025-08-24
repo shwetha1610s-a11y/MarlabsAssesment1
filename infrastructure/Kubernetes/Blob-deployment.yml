@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blogapp-config
+  namespace: default
+  labels:
+    app: blogapp
+
+data:
+  ANGULAR_ENV: "production"
+  API_URL: "http://backend:5000"
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: blogapp-azure-kv
+spec:
+  provider: azure
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "true"
+    keyvaultName: "<your-keyvault-name>"
+    objects: |
+      array:
+        - objectName: db-password
+          objectType: secret
+        - objectName: connection-string
+          objectType: secret
+    tenantId: "<your-tenant-id>"
+  secretObjects:
+    - secretName: blogapp-secrets
+      type: Opaque
+      data:
+        - objectName: db-password
+          key: DB_PASSWORD
+        - objectName: connection-string
+          key: CONNECTION_STRING
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: blogapp
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: blogapp
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: blogapp
+        tier: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: <your-acr-name>.azurecr.io/frontend:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: ANGULAR_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: blogapp-config
+              key: ANGULAR_ENV
+        - name: API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: blogapp-config
+              key: API_URL
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: blogapp
+spec:
+  type: ClusterIP
+  selector:
+    app: blogapp
+    tier: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: blogapp
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: blogapp
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: blogapp
+        tier: backend
+    spec:
+      volumes:
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "blogapp-azure-kv"
+      containers:
+      - name: backend
+        image: <your-acr-name>.azurecr.io/backend:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: blogapp-secrets
+              key: DB_PASSWORD
+        - name: CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: blogapp-secrets
+              key: CONNECTION_STRING
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: blogapp
+spec:
+  type: ClusterIP
+  selector:
+    app: blogapp
+    tier: backend
+  ports:
+  - port: 5000
+    targetPort: 80
