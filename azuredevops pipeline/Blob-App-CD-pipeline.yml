@@ -1,0 +1,102 @@
+trigger: none
+
+stages:
+- stage: DeployDev
+  displayName: 'Deploy to DEV'
+  dependsOn: []
+  jobs:
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-FRONTEND-DEV-APP-SERVICE-NAME>'
+      artifactName: 'angular-app'
+      packagePath: '$(Pipeline.Workspace)/angular-app'  # From Angular build pipeline artifact
+      appSettings: |
+        FRONTEND_API_URL=https://dev-backend-url
+        ANGULAR_ENV=development
+      environment: 'dev'
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-BACKEND-DEV-APP-SERVICE-NAME>'
+      artifactName: 'App'
+      packagePath: '$(Pipeline.Workspace)/App'  # From .NET build pipeline artifact
+      appSettings: |
+        ASPNETCORE_ENVIRONMENT=Development
+        ConnectionStrings__DefaultConnection=<DEV-CONNECTION-STRING>
+      environment: 'dev'
+
+- stage: DeployQA
+  displayName: 'Deploy to QA'
+  dependsOn: DeployDev
+  jobs:
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-FRONTEND-QA-APP-SERVICE-NAME>'
+      artifactName: 'angular-app'
+      packagePath: '$(Pipeline.Workspace)/angular-app'  # From Angular build pipeline artifact
+      appSettings: |
+        FRONTEND_API_URL=https://qa-backend-url
+        ANGULAR_ENV=qa
+      environment: 'qa'
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-BACKEND-QA-APP-SERVICE-NAME>'
+      artifactName: 'App'
+      packagePath: '$(Pipeline.Workspace)/App'  # From .NET build pipeline artifact
+      appSettings: |
+        ASPNETCORE_ENVIRONMENT=QA
+        ConnectionStrings__DefaultConnection=<QA-CONNECTION-STRING>
+      environment: 'qa'
+
+- stage: DeployStg
+  displayName: 'Deploy to STG'
+  dependsOn: DeployQA
+  jobs:
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-FRONTEND-STG-APP-SERVICE-NAME>'
+      artifactName: 'angular-app'
+      packagePath: '$(Pipeline.Workspace)/angular-app'  # From Angular build pipeline artifact
+      appSettings: |
+        FRONTEND_API_URL=https://stg-backend-url
+        ANGULAR_ENV=staging
+      environment: 'stg'
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-BACKEND-STG-APP-SERVICE-NAME>'
+      artifactName: 'App'
+      packagePath: '$(Pipeline.Workspace)/App'  # From .NET build pipeline artifact
+      appSettings: |
+        ASPNETCORE_ENVIRONMENT=Staging
+        ConnectionStrings__DefaultConnection=<STG-CONNECTION-STRING>
+      environment: 'stg'
+
+- stage: DeployProd
+  displayName: 'Deploy to PROD'
+  dependsOn: DeployStg
+  jobs:
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-FRONTEND-PROD-APP-SERVICE-NAME>'
+      artifactName: 'angular-app'
+      packagePath: '$(Pipeline.Workspace)/angular-app'  # From Angular build pipeline artifact
+      appSettings: |
+        FRONTEND_API_URL=https://prod-backend-url
+        ANGULAR_ENV=production
+      environment: 'prod'
+  - template: azure-pipelines-cd-template.yml
+    parameters:
+      azureSubscription: '<YOUR-AZURE-SUBSCRIPTION-SERVICE-CONNECTION>'
+      appName: '<YOUR-BACKEND-PROD-APP-SERVICE-NAME>'
+      artifactName: 'App'
+      packagePath: '$(Pipeline.Workspace)/App'  # From .NET build pipeline artifact
+      appSettings: |
+        ASPNETCORE_ENVIRONMENT=Production
+        ConnectionStrings__DefaultConnection=<PROD-CONNECTION-STRING>
+      environment: 'prod'

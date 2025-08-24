@@ -1,0 +1,121 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'release'
+
+stages:
+  # Stage 1: Build Angular App
+  - stage: Build
+    displayName: 'Build Angular App'
+    jobs:
+      - job: BuildJob
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '18.x'
+            displayName: 'Install Node.js'
+
+          - task: Npm@1
+            inputs:
+              command: 'custom'
+              customCommand: 'install -g @angular/cli'
+            displayName: 'Install Angular CLI'
+
+          - task: Npm@1
+            inputs:
+              command: 'ci'
+            displayName: 'Install Dependencies'
+
+          - task: Npm@1
+            inputs:
+              command: 'custom'
+              customCommand: 'run build -- --configuration=$(buildConfiguration)'
+            displayName: 'Build Angular App'
+
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: 'dist'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/angular-app.zip'
+              replaceExistingArchive: true
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'angular-app'
+              publishLocation: 'Container'
+
+  # Stage 2: Deploy to Dev
+  - stage: DeployDev
+    displayName: 'Deploy to Dev Environment'
+    dependsOn: Build
+    jobs:
+      - deployment: DevDeploy
+        environment: 'Dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: angular-app
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '<Your Azure Service Connection>'
+                    appType: 'webApp'
+                    appName: '<Your Dev Web App Name>'
+                    package: '$(Pipeline.Workspace)/angular-app/angular-app.zip'
+                  displayName: 'Deploy to Dev Web App'
+
+  # 🧪 Stage 3: Deploy to Staging
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging Environment'
+    dependsOn: DeployDev
+    condition: succeeded()
+    jobs:
+      - deployment: StagingDeploy
+        environment: 'Staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: angular-app
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '<Your Azure Service Connection>'
+                    appType: 'webApp'
+                    appName: '<Your Staging Web App Name>'
+                    package: '$(Pipeline.Workspace)/angular-app/angular-app.zip'
+                  displayName: 'Deploy to Staging Web App'
+
+  # 🎯 Stage 4: Deploy to Production
+  - stage: DeployProd
+    displayName: 'Deploy to Production Environment'
+    dependsOn: DeployStaging
+    condition: succeeded()
+    jobs:
+      - deployment: ProdDeploy
+        environment: 'Production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: angular-app
+
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: '<Your Azure Service Connection>'
+                    appType: 'webApp'
+                    appName: '<Your Production Web App Name>'
+                    package: '$(Pipeline.Workspace)/angular-app/angular-app.zip'
+                  displayName: 'Deploy to Production Web App'

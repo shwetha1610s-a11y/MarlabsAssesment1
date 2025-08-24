@@ -1,0 +1,37 @@
+parameters:
+  - name: azureSubscription
+    type: string
+  - name: appName
+    type: string
+  - name: artifactName
+    type: string
+  - name: packagePath
+    type: string
+  - name: appSettings
+    type: string
+  - name: environment
+    type: string
+    default: 'production'
+
+jobs:
+- deployment: DeployApp
+  displayName: 'Deploy to Azure App Service'
+  environment: ${{ parameters.environment }}
+  pool:
+    vmImage: 'ubuntu-latest'
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        
+          - download: current
+            artifact: ${{ parameters.artifactName }}
+
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Azure App Service'
+            inputs:
+              azureSubscription: ${{ parameters.azureSubscription }}
+              appType: 'webApp'
+              appName: ${{ parameters.appName }}
+              package: ${{ parameters.packagePath }}
+              appSettings: ${{ parameters.appSettings }}
