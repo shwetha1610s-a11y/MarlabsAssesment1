@@ -1,68 +1,99 @@
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "<YOUR-STATE-RG>"
+    storage_account_name = "<YOURSTATESTORAGE>"
+    container_name       = "tfstate"
+    key                  = "qa.terraform.tfstate"
+  }
+}
+
 provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "blog_rg" {
-  name     = "blog-app-rg"
-  location = "East US"
+resource "azurerm_resource_group" "qa_rg" {
+  name     = var.resource_group_name
+  location = var.location
 }
 
-resource "azurerm_app_service_plan" "blog_plan" {
-  name                = "blog-app-plan"
-  location            = azurerm_resource_group.blog_rg.location
-  resource_group_name = azurerm_resource_group.blog_rg.name
-  sku {
-    tier = "Standard"
-    size = "S1"
-  }
+data "azurerm_resource_group" "qa_rg" {
+  name = var.resource_group_name
+  location = var.location
 }
 
-resource "azurerm_app_service" "blog_app" {
-  name                = "blog-app-service"
-  location            = azurerm_resource_group.blog_rg.location
-  resource_group_name = azurerm_resource_group.blog_rg.name
-  app_service_plan_id = azurerm_app_service_plan.blog_plan.id
-
-  site_config {
-    always_on = true
-  }
-
-  app_settings = {
-    "APPINSIGHTS_INSTRUMENTATIONKEY" = azurerm_application_insights.blog_insights.instrumentation_key
-    "COSMOS_DB_CONN_STRING"          = azurerm_cosmosdb_account.blog_cosmos.connection_strings[0]
-  }
+module "app_service_plan" {
+  source              = "../modules/app_service_plan"
+  name                = "${var.prefix}-asp"
+  location            = data.azurerm_resource_group.qa_rg.location
+  resource_group_name = data.azurerm_resource_group.qa_rg.name
+  kind                = "Linux"
+  reserved            = true
+  sku_tier            = var.pricing_tier
+  sku_size            = var.pricing_size
 }
 
-resource "azurerm_application_insights" "blog_insights" {
-  name                = "blog-app-insights"
-  location            = azurerm_resource_group.blog_rg.location
-  resource_group_name = azurerm_resource_group.blog_rg.name
-  application_type    = "web"
+module "key_vault" {
+  source              = "../modules/key_vault"
+  name                = "${var.prefix}-kv"
+  location            = azurerm_resource_group.qa_rg.location
+  resource_group_name = azurerm_resource_group.qa_rg.name
+  tenant_id           = var.tenant_id
 }
 
-resource "azurerm_cosmosdb_account" "blog_cosmos" {
-  name                = "blog-cosmos-db"
-  location            = azurerm_resource_group.blog_rg.location
-  resource_group_name = azurerm_resource_group.blog_rg.name
-  offer_type          = "Standard"
-  kind                = "GlobalDocumentDB"
-
-  consistency_policy {
-    consistency_level = "Session"
-  }
-
-  geo_location {
-    location          = azurerm_resource_group.blog_rg.location
-    failover_priority = 0
-  }
+resource "azurerm_key_vault_secret" "db_password" {
+  name         = "db-password"
+  value        = var.db_password
+  key_vault_id = module.key_vault.id
 }
 
-resource "azurerm_key_vault" "blog_kv" {
-  name                = "blog-keyvault"
-  location            = azurerm_resource_group.blog_rg.location
-  resource_group_name = azurerm_resource_group.blog_rg.name
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-  sku_name            = "standard"
+data "azurerm_key_vault_secret" "db_password" {
+  name         = azurerm_key_vault_secret.db_password.name
+  key_vault_id = module.key_vault.id
 }
 
-data "azurerm_client_config" "current" {}
+module "frontend_app_service" {
+  source              = "../modules/app_service"
+  name                = "${var.prefix}-frontend"
+  location            = data.azurerm_resource_group.qa_rg.location
+  resource_group_name = data.azurerm_resource_group.qa_rg.name
+  app_service_plan_id = module.app_service_plan.id
+  linux_fx_version    = "NODE|18-lts"
+  app_settings        = { "ANGULAR_ENV" = "qa" }
+  pricing_tier        = var.pricing_tier
+  pricing_size        = var.pricing_size
+}
+
+module "backend_app_service" {
+  source              = "../modules/app_service"
+  name                = "${var.prefix}-backend"
+  location            = data.azurerm_resource_group.qa_rg.location
+  resource_group_name = data.azurerm_resource_group.qa_rg.name
+  app_service_plan_id = module.app_service_plan.id
+  linux_fx_version    = "DOTNETCORE|8.0"
+  app_settings        = { "ASPNETCORE_ENVIRONMENT" = "QA" }
+  pricing_tier        = var.pricing_tier
+  pricing_size        = var.pricing_size
+}
+
+module "postgresql" {
+  source                  = "../modules/postgresql"
+  name                    = "${var.prefix}-pg"
+  location                = azurerm_resource_group.qa_rg.location
+  resource_group_name     = azurerm_resource_group.qa_rg.name
+  administrator_login     = var.db_admin
+  administrator_password  = data.azurerm_key_vault_secret.db_password.value
+}
+
+module "storage" {
+  source              = "../modules/storage"
+  name                = lower(replace("${var.prefix}storageqa", "-", ""))
+  location            = azurerm_resource_group.qa_rg.location
+  resource_group_name = azurerm_resource_group.qa_rg.name
+}
+
+module "app_insights" {
+  source              = "../modules/app_insights"
+  name                = "${var.prefix}-ai"
+  location            = azurerm_resource_group.qa_rg.location
+  resource_group_name = azurerm_resource_group.qa_rg.name
+}

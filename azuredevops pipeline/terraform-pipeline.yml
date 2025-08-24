@@ -1,0 +1,82 @@
+trigger: none
+
+variables:
+  TF_WORKING_DIR: 'infrastructure/Terraform/QA'
+
+stages:
+- stage: Plan
+  displayName: 'Terraform Plan'
+  jobs:
+    - job: TerraformPlan
+      displayName: 'Terraform Init, Validate, Plan'
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+
+        - task: TerraformInstaller@1
+          displayName: 'Install Terraform'
+          inputs:
+            terraformVersion: '1.7.5'
+
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Init'
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(TF_WORKING_DIR)'
+
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Validate'
+          inputs:
+            provider: 'azurerm'
+            command: 'validate'
+            workingDirectory: '$(TF_WORKING_DIR)'
+
+        - task: TerraformTaskV4@4
+          displayName: 'Terraform Plan'
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(TF_WORKING_DIR)'
+            environmentServiceNameAzureRM: '<YOUR-AZURE-SERVICE-CONNECTION>'
+            commandOptions: '-out=tfplan'
+
+        - publish: $(TF_WORKING_DIR)/tfplan
+          artifact: tfplan
+
+- stage: Apply
+  displayName: 'Terraform Apply'
+  dependsOn: Plan
+  condition: succeeded()
+  jobs:
+    - deployment: TerraformApply
+      displayName: 'Terraform Apply'
+      environment: 'terraform-qa-approval'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - download: current
+                artifact: tfplan
+
+              - task: TerraformInstaller@1
+                displayName: 'Install Terraform'
+                inputs:
+                  terraformVersion: '1.7.5'
+
+              - task: TerraformTaskV4@4
+                displayName: 'Terraform Init'
+                inputs:
+                  provider: 'azurerm'
+                  command: 'init'
+                  workingDirectory: '$(TF_WORKING_DIR)'
+
+              - task: TerraformTaskV4@4
+                displayName: 'Terraform Apply'
+                inputs:
+                  provider: 'azurerm'
+                  command: 'apply'
+                  workingDirectory: '$(TF_WORKING_DIR)'
+                  environmentServiceNameAzureRM: '<YOUR-AZURE-SERVICE-CONNECTION>'
+                  commandOptions: 'tfplan'

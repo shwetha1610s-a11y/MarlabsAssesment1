@@ -1,4 +1,23 @@
-output "app_service_url"
-{
-  value = azurerm_app_service.blog_app.default_site_hostname
+output "frontend_app_service_id" {
+  value = module.frontend_app_service.id
+}
+
+output "backend_app_service_id" {
+  value = module.backend_app_service.id
+}
+
+output "postgresql_id" {
+  value = module.postgresql.id
+}
+
+output "storage_id" {
+  value = module.storage.id
+}
+
+output "key_vault_id" {
+  value = module.key_vault.id
+}
+
+output "app_insights_id" {
+  value = module.app_insights.id
 }
