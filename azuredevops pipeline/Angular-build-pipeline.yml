@@ -1,0 +1,51 @@
+name: frontend-Build-$(date:yyyyMMdd)$(rev:.rr)
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'release'
+
+steps:
+  # Use NodeTool task to install Node.js
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '18.x'
+    displayName: 'Install Node.js'
+
+  # Install Angular CLI and dependencies
+  - task: Npm@1
+    inputs:
+      command: 'custom'
+      customCommand: 'install -g @angular/cli'
+    displayName: 'Install Angular CLI'
+
+  - task: Npm@1
+    inputs:
+      command: 'ci'
+    displayName: 'Install project dependencies'
+
+  # Build the Angular app
+  - task: Npm@1
+    inputs:
+      command: 'custom'
+      customCommand: 'run build -- --configuration=$(buildConfiguration)'
+    displayName: 'Build Angular app'
+
+  # Run unit tests
+  - task: Npm@1
+    inputs:
+      command: 'custom'
+      customCommand: 'run test -- --watch=false --browsers=ChromeHeadless'
+    displayName: 'Run unit tests'
+
+  # Publish build artifacts 
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: 'dist'
+      artifactName: 'angular-app'
+      publishLocation: 'Container'

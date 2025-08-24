@@ -1,0 +1,51 @@
+name: Backend-Build-$(date:yyyyMMdd)$(rev:.rr)
+
+trigger:
+  branches:
+    include:
+    - main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  rootDirectory: 'src/backend'
+
+steps:
+- checkout: self
+  submodules: recursive
+
+- task: UseDotNet@2
+  displayName: 'ALL - Use .NET Core SDK 8.x'
+  inputs:
+    version: 8.x
+    includePreviewVersions: true 
+
+- task: DotNetCoreCLI@2
+  displayName: 'Dotnet Restore - $(rootDirectory)'
+  inputs:
+    command: 'restore'   
+    projects: '$(rootDirectory)/*.sln' 
+    feedsToUse: "select"
+    vstsFeed: 'Feed ID'
+    
+- task: DotNetCoreCLI@2
+  displayName: 'Build $(rootDirectory) Solution'
+  inputs:
+    command: 'build'
+    projects: '$(rootDirectory)/*.sln'
+    arguments: '--configuration $(buildConfiguration)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Execute Unit TestCases'
+  inputs:
+    command: 'test'
+    projects: '$(rootDirectory)/Test/backend.csproj'
+    arguments: '--collect "Code Coverage" --settings "$(Build.SourcesDirectory)\$(rootDirectory)\codecoverage.runsettings"'
+
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)'
+    artifact: 'App'
+    publishLocation: 'pipeline'
