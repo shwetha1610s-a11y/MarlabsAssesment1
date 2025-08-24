@@ -1,6 +1,9 @@
 trigger: none
 
 variables:
+- group: kv-secrets
+  # This variable group is linked to Azure Key Vault and provides db-password, tenant-id, etc.
+  
   TF_WORKING_DIR: 'infrastructure/Terraform/QA'
 
 stages:
@@ -40,7 +43,10 @@ stages:
             command: 'plan'
             workingDirectory: '$(TF_WORKING_DIR)'
             environmentServiceNameAzureRM: '<YOUR-AZURE-SERVICE-CONNECTION>'
-            commandOptions: '-out=tfplan'
+            commandOptions: >
+              -var="db_password=$(db-password)" \
+              -var="tenant_id=$(tenant-id)" \
+              -var-file="terraform.tfvars"
 
         - publish: $(TF_WORKING_DIR)/tfplan
           artifact: tfplan
@@ -79,4 +85,8 @@ stages:
                   command: 'apply'
                   workingDirectory: '$(TF_WORKING_DIR)'
                   environmentServiceNameAzureRM: '<YOUR-AZURE-SERVICE-CONNECTION>'
-                  commandOptions: 'tfplan'
+                  commandOptions: >
+                    tfplan \
+                    -var="db_password=$(db-password)" \
+                    -var="tenant_id=$(tenant-id)" \
+                    -var-file="terraform.tfvars"
